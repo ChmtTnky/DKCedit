@@ -3,6 +3,8 @@ Modding tool for the Steam release of Dokapon Kingdom: Connect
 <br>
 DKCedit comprises two pieces of software used to make code related mods for Dokapon Kingdom. These are located in Generator and Loader. If you only want to install mods, then you only have to use the loader application.
 
+This fork is what the ConnectModInstaller uses to apply code mods. It eliminates the need for manual user input, and attempts to add new features to make more kinds of mods possible to implement.
+
 ## Requirements
 If you are only loading mods and not writing them, you just need to use the `DKCedit.exe` file and not `mod_generator.exe`. <br>
 ***
