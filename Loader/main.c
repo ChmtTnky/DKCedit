@@ -119,7 +119,7 @@ void mod_bootloader(FILE *game){
     fwrite(&new_jump, sizeof(uint32_t), 1, game);
 }
 
-void main(){
+void main(int argc, char** argv){
     //system("COLOR 05");
     printf("                    ___           ___           ___                                             \n");
     printf("     _____         /|  |         /\\__\\         /\\__\\         _____                              \n");
@@ -134,13 +134,11 @@ void main(){
     printf("     \\/__/         \\/__/         \\/__/         \\/__/         \\/__/         \\/__/         \\/__/  \n");
     printf("Version: ");
     printf("1.0\n");
-    printf("Input the file path to %s\n", GAME_NAME);
+
     char input[MAX_STRING];
-    fgets(input, 200, stdin);
-    newline_remover(input);
+    strcpy(input, argv[1]);
     strcat(input, "\\");
     strcat(input, GAME_NAME);
-    printf("%s\n", input);
     FILE *game;
     if (game = fopen(input, "rb+")){
     } else{
@@ -153,34 +151,40 @@ void main(){
     printf("Sections found = %d\n", sections);
     
     if(sections == DEFAULT_SECTIONS){
+        // just automatically apply the bootloader and dont ask anything, then start the mod loop no matter what
         default_prompt:
-        printf("Default amount of sections in PE found. Would you like to run the mod initializer?\n(y / n)\n");
-        fgets(input, 10, stdin);
-        newline_remover(input);
-        if(input[0] != 'y' && input[0] != 'n'){
-            printf("Invalid option type y or n\n");
-            goto default_prompt;
-        }else if(input[0] == 'y'){
-            mod_bootloader(game);
-        }
+        printf("Default amount of sections in PE found\n");
+        mod_bootloader(game);
+        goto start_mod_loop;
     } else {
+    start_mod_loop:;
+        // Just dont even ask for i/o, just use the cmd args for the folder paths
+        // every arg after the exe path is a folder to mod files
+        // if the path is invalid, just move on to the next one
+        int mods_left = argc - 2;
+        int curr_id = 2;
         char old_path[256];
         getcwd(old_path, 256);
         mod_loop:; //C syntax (╯°□°)╯︵ ┻━┻
-        unsigned char more_prompt = prompt_user("This file has already been modded. Would you like to add more mods?\n");
-        if(!more_prompt) {
+        if (mods_left <= 0)
             goto finish;
-        }
-        printf("Input the file path to the mod folder (path must be <200 characters)\n");
-        fgets(input, 200, stdin);
-        newline_remover(input);
+        strcpy(input, argv[curr_id]);
         if(chdir(input) != 0) {
             printf("Invalid path. Include the full path\n");
+            mods_left -= 1;
+            curr_id += 1;
             goto mod_loop;
         }
         load_mod(game);
         chdir(old_path);
-        goto mod_loop;
+        if (mods_left <= 0)
+            goto finish;
+        else
+        {
+            mods_left -= 1;
+            curr_id += 1;
+            goto mod_loop;
+        }
     }
     /*
     unsigned char prompted = prompt_user("Would you like the attack calculator mod? (y/n)");
@@ -258,18 +262,29 @@ void load_mod(FILE* game){
             space_used++;
             cur_instruction_addr++;
             file_address++;
+            // new code
+            // if the call site isnt in the file, just write in nops
+            char callsite_found = 1;
+            char call_virt[255];
+            if (fgets(call_virt, 255, functions) == NULL) {
+                printf("Original function address not found. Call offset was not generated\n");
+                callsite_found = 0;
+            }
             //Put in call (0xE8) byte
             fread(&cur_byte, 1, 1, mod);
+            // write nop if no callsite
+            if (callsite_found == 0)
+                cur_byte = 0x90;
             fwrite(&cur_byte, 1, 1, game);
             space_used++;
             cur_instruction_addr++;
             file_address++;
             //Do call instruction
-            char call_virt[255];
-            if(fgets(call_virt, 255, functions) == NULL){
-                printf("Incomplete (or corrupted) functions file. Mod failed to install (space was still used)\n");
-                goto mod_end;
-            }
+            //char call_virt[255];
+            //if (fgets(call_virt, 255, functions) == NULL) {
+            //    printf("Incomplete (or corrupted) functions file. Mod failed to install (space was still used)\n");
+            //    goto mod_end;
+            //}
             char *end;
             uint32_t target_call = (uint32_t)strtoul(call_virt, &end, 16);
             if (*end != '\0' && *end != '\n') {
@@ -277,10 +292,15 @@ void load_mod(FILE* game){
                 goto mod_end;
             }
             int call_offset = target_call - (cur_instruction_addr + 4);
+            // write nop if no callsite
+            if (callsite_found == 0)
+                call_offset = 0x90909090;
             fwrite(&call_offset, sizeof(int), 1, game);
             int discard;
             fread(&discard, sizeof(int), 1, mod);
-            printf("Call offset generated: %x\n", call_offset);
+            // inform user if callsite was made
+            if (callsite_found == 1)
+                printf("Call offset generated: %x\n", call_offset);
             space_used += 4;
             cur_instruction_addr += 4;
             file_address += 4;
