@@ -10,13 +10,11 @@
 
 #define GAME_NAME "DkkStm.exe"
 #define BUILD_VER "DKCedit: Ver 1.0 .%04d.%02d/%02d %s"
-#define BUILD_DATE "Jan 04 2024"
-#define BUILD_TIME "19:33:06"
+#define BUILD_DATE "DKCedit 1.2.0\0"
+#define BUILD_TIME "69:69:69"
 
 #define OLD_DATE_OFFSET 0x4B47D8
 #define OLD_TIME_OFFSET 0x4B47F8
-#define OLD_STRING_OFFSET 0x279C7
-#define NEW_STRING_OFFSET 0x00ADCA35
 
 #define MOD_SIZE_ADDR 0x5DEA24
 
@@ -40,10 +38,11 @@
 
 void load_mod(FILE* game);
 void mod_bootloader(FILE* game);
+void write_date(FILE* game);
 
 // Main
 
-void main(int argc, char** argv){
+void main(int argc, char** argv) {
     // print logo
     // looks awesome, btw
     printf("                    ___           ___           ___                                             \n");
@@ -134,6 +133,7 @@ void main(int argc, char** argv){
     }
     // execution is complete, stop the installer
 finish:
+    write_date(game);
     fclose(game);
     // most important line. DO NOT REMOVE
     printf(":3\n");
@@ -193,24 +193,25 @@ void mod_bootloader(FILE* game) {
     sec_field = IMAGE_SIZE;
     fwrite(&sec_field, 4, 1, game);
 
-    // write in build information
-    // this would ideally appear on the title screen
+    // write in build info and also clear the new section in the file
     char empty = 0;
     char debug_info[] = BUILD_VER;
-    fseek(game, 0, SEEK_END);
+    fseek(game, RAW_OFFSET, SEEK_SET);
     fwrite(debug_info, sizeof(debug_info), 1, game);
     for (int i = 0; i < NEW_SECTION_SIZE - sizeof(debug_info); i++) {
         fwrite(&empty, 1, 1, game);
     }
+}
+
+// write the "date" so it shows dkcedit on the title screen
+void write_date(FILE* game) {
     fseek(game, OLD_DATE_OFFSET, SEEK_SET);
     char new_date_info[] = BUILD_DATE;
     fwrite(new_date_info, sizeof(new_date_info), 1, game);
+
     fseek(game, OLD_TIME_OFFSET, SEEK_SET);
     char new_time_info[] = BUILD_TIME;
     fwrite(new_time_info, sizeof(new_time_info), 1, game);
-    fseek(game, OLD_STRING_OFFSET, SEEK_SET);
-    uint32_t new_jump = NEW_STRING_OFFSET;
-    fwrite(&new_jump, sizeof(uint32_t), 1, game);
 }
 
 // check if 4 byte array is equal to one of our special nop register conditions
